@@ -1,0 +1,30 @@
+.duration {
+  min-height: 50%;
+  font-size: 100px;
+  color: red;
+  text-align: center;
+  cursor: pointer;
+}
+
+.local {
+  min-height: 50%;
+  font-size: 100px;
+  color: greenyellow;
+  text-align: center;
+  cursor: pointer;
+}
+
+.remote {
+  min-height: 50%;
+  font-size: 100px;
+  color: darkblue;
+  text-align: center;
+  cursor: pointer;
+}
+
+.message {
+  min-height: 50%;
+  font-size: 24px;
+  color: darkblue;
+  text-align: center;
+}
