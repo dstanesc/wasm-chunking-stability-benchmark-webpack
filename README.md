@@ -20,8 +20,5 @@ A browser page will open and guide the execution.
 
 ##  Example Results
 
-One of the relevant insight will be to discover the favorable ratio between overall payload and chunk size
 
-
-![](./img/chunking-speed.png)
 
