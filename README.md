@@ -35,11 +35,13 @@ The chunking config is maintained the same for all tests.
 ## Findings
 
 __The good__
+
 1. Both _FastCDC_ and _Buzhash_ display a remarkable reuse behavior on json and serialized (_msgpack_ encoded) data. 
 2. One surprising insight is that _LZ4_ compression is also preserving a very good reusability rate, almost equivalent with the json and serialized data. 
 3. Sparse modifications (see bottom charts) applied to _json_, _msgpack_ and _LZ4_ data formats also manifest very good reusability 
 
 __The bad__
+
 4. CDC on the _LZ77+Huffman_ compression format (ie. _Pako_) shows NO ability to reuse blocks
 5. _Base64_ encoding also collapses the reusability rate
 
