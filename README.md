@@ -40,11 +40,11 @@ __The good__
 2. One surprising insight is that _LZ4_ compression is also preserving a very good reusability rate, almost equivalent with the json and serialized data. 
 3. Sparse modifications (see bottom charts) applied to _json_, _msgpack_ and _LZ4_ data formats also manifest very good reusability 
 
+
 __The bad__
 
 4. CDC on the _LZ77+Huffman_ compression format (ie. _Pako_) shows NO ability to reuse blocks
 5. _Base64_ encoding also collapses the reusability rate
-
 
 
 ## Execute Benchmark
@@ -57,6 +57,18 @@ npm start
 ```
 
 A browser page will open and guide the execution.
+
+
+## Highlighted Results
+
+The most challenging chunking test is when updates are spread. Few spread factors analyzed:
+
+![](./img/sparse-10.png)
+
+![](./img/sparse-50.png)
+
+![](./img/sparse-100.png)
+
 
 ##  Example Results
 
