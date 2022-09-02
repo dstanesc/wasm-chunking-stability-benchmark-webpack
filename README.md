@@ -26,9 +26,9 @@ Each library is modified in three different ways:
 
 The benchmark is also evaluating sparse updates. For statistical relevance only on the largest material library is evaluated.
 
-- Update 10 materials, starting at index 10 and skipping intervals of 10 (sparsity 10)
-- Update 10 materials, starting at index 10 and skipping intervals of 50 (sparsity 50)
-- Update 10 materials, starting at index 10 and skipping intervals of 100 (sparsity 100), which is more or less distributing changes evenly across the entire material library
+- Update 10 materials, starting at index 100 and skipping intervals of 10 (sparsity 10)
+- Update 10 materials, starting at index 100 and skipping intervals of 50 (sparsity 50)
+- Update 10 materials, starting at index 100 and skipping intervals of 100 (sparsity 100), which is more or less distributing changes evenly across the entire material library
 
 The chunking config is maintained the same for all tests.
 
