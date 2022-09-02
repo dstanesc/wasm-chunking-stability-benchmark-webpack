@@ -6,10 +6,10 @@ The project uses [synthetic material data](https://www.npmjs.com/package/@dstane
 
 The binary data is derived from the material libraries in several ways:  
 - [json text encoded](https://developer.mozilla.org/en-US/docs/Web/API/TextEncoder), 
-- combined json text plus base64 encoded, 
+- combined json text plus [base64 encoded](https://www.npmjs.com/package/base64-js), 
 - [msgpack encoded](https://www.npmjs.com/package/msgpackr), 
-- combined msgpack encoded plus [lz4 compressed](https://www.npmjs.com/package/lz4) 
-- combined msgpack encoded plus zlib (aka [pako](https://www.npmjs.com/package/pako)) compressed
+- combined msgpack encoded plus [LZ4 compressed](https://www.npmjs.com/package/lz4) 
+- combined msgpack encoded plus LZ77+Huffman (aka [pako](https://www.npmjs.com/package/pako)) compressed
 
 Each (encoding, chunking algorithm) pair is evaluated.
 
