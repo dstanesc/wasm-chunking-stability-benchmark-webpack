@@ -9,6 +9,7 @@ import { codec, blockStore, chunkerFactory } from './util.js'
 import { pack } from 'msgpackr';
 import * as lz4 from 'lz4js'
 import * as pako from 'pako'
+import * as b64 from 'base64-js'
 
 import { layout, trace } from './plot';
 
@@ -18,34 +19,41 @@ function App() {
   const [b300, setB300] = useState("[300s]")
   const [b1200, setB1200] = useState("[1200s]")
 
-  const bytesTotal = useRef(new Map())
-  const totalBlocks = useRef(new Map())
+  const totalBlocksBefore = useRef(new Map())
+  const totalBlocksAfter = useRef(new Map())
   const blocksReused = useRef(new Map())
-  const blocksNew = useRef(new Map())
+  const blocksDiff = useRef(new Map())
   const reuseRatios = useRef(new Map())
+  const bytesTotal = useRef(new Map())
 
   const TEXT_ENCODER = new TextEncoder()
+
+  function formatLabel(input) {
+    const tokens = input.split("-")
+    return tokens.map(val => val.charAt(0).toUpperCase() + val.slice(1)).reduce((txt, val) => `${txt} ${val}`, "")
+  }
 
   const renderCategory = (matCount, matCountChange, changeOffset, chunkerConfig, changePolicy, divName) => {
     const traces = []
     reuseRatios.current.forEach((value, key) => {
       if (key.startsWith(matCount.toString())) {
-        const what = key.split("-");
+        const what = key.split("-")
         const alg = what[2]; //eg. fastcdc, buzhash
         const lib = what[1]; // eg. json, packr, pako, lz4
         //const count = what[0]; // 300, 600, 1200, etc
-        const totalCount = totalBlocks.current.get(key)
+        const totalCountBefore = totalBlocksBefore.current.get(key)
+        const totalCountAfter = totalBlocksAfter.current.get(key)
         const reuseRatio = reuseRatios.current.get(key)
         const reuseCount = blocksReused.current.get(key)
-        const newCount = blocksNew.current.get(key)
+        const newCount = blocksDiff.current.get(key)
         const bytes = bytesTotal.current.get(key)
         const hoverText = `${alg}, ${lib}`
-        const t = trace({ lib, alg, count: totalCount, bytes, values: [totalCount, newCount, reuseCount, reuseRatio], text: [hoverText, hoverText, hoverText, hoverText] });
+        const t = trace({ lib, alg, count: totalCountAfter, bytes, values: [totalCountBefore, totalCountAfter, newCount, reuseCount, reuseRatio], text: [hoverText, hoverText, hoverText, hoverText, hoverText] });
 
         traces.push(t);
       }
     });
-    const l1 = layout(`<b>${divName}:</b> ${matCount} materials, ${matCountChange} ${changePolicy} materials at offset: ${changeOffset}, chunking config: ${JSON.stringify(chunkerConfig)}`);
+    const l1 = layout(`<b>${formatLabel(divName)}:</b> ${matCount} materials, ${matCountChange} ${changePolicy} materials at offset: ${changeOffset}, fastcdc block size: ${chunkerConfig.fastAvgSize / 2} to ${chunkerConfig.fastAvgSize * 2} bytes, buzhash mask: ${chunkerConfig.buzMask}`);
     Plotly.newPlot(divName, traces, l1);
   }
 
@@ -53,21 +61,29 @@ function App() {
 
     cleanUp()
 
-    const changeSize = 3 //Math.floor((totalSize * 2) / 100)
-
+    const changeSize = 3
     const changeOffset = Math.floor((totalSize - 1) / 2)
-
     await rollInternal(chunkerConfig, totalSize, totalSize, changeSize, 'appended', appendDataSets, 'append')
     await rollInternal(chunkerConfig, totalSize, changeOffset, changeSize, 'inserted', insertDataSets, 'insert')
     await rollInternal(chunkerConfig, totalSize, changeOffset, changeSize, 'modified', modifyDataSets, 'modify')
+
+    if (totalSize > 1000) {
+      const changeSizeSparse = 10
+      const changeOffsetSparse = 100
+      await rollInternal(chunkerConfig, totalSize, changeOffsetSparse, changeSizeSparse, 'modified sparse (skip 10 materials)', modifyDataSets, 'modify-sparse-10', 10)
+      await rollInternal(chunkerConfig, totalSize, changeOffsetSparse, changeSizeSparse, 'modified sparse (skip 50 materials)', modifyDataSets, 'modify-sparse-50', 50)
+      await rollInternal(chunkerConfig, totalSize, changeOffsetSparse, changeSizeSparse, 'modified sparse (skip 100 materials)', modifyDataSets, 'modify-sparse-100', 100)
+    }
   }
 
-  async function rollInternal(chunkerConfig, totalSize, changeOffset, changeSize, changeName, generate, divSuffix) {
+  async function rollInternal(chunkerConfig, totalSize, changeOffset, changeSize, changeName, generate, divSuffix, sparsity = 1) {
 
-    const { firstSet, secondSet } = generate(totalSize, changeOffset, changeSize)
+    const { firstSet, secondSet } = generate(totalSize, changeOffset, changeSize, sparsity)
 
     await computeReuse({ firstSet, secondSet }, chunkerConfig, toBinaryJson, 'json', 'fastcdc');
     await computeReuse({ firstSet, secondSet }, chunkerConfig, toBinaryJson, 'json', 'buzhash');
+    await computeReuse({ firstSet, secondSet }, chunkerConfig, toBinaryBase64, 'base64', 'fastcdc');
+    await computeReuse({ firstSet, secondSet }, chunkerConfig, toBinaryBase64, 'base64', 'buzhash');
     await computeReuse({ firstSet, secondSet }, chunkerConfig, toBinaryPackr, 'packr', 'fastcdc');
     await computeReuse({ firstSet, secondSet }, chunkerConfig, toBinaryPackr, 'packr', 'buzhash');
     await computeReuse({ firstSet, secondSet }, chunkerConfig, toBinaryLz4, 'lz4', 'fastcdc');
@@ -108,9 +124,10 @@ function App() {
   }
 
   const cleanUp = () => {
-    blocksNew.current.clear()
+    blocksDiff.current.clear()
     blocksReused.current.clear()
-    totalBlocks.current.clear()
+    totalBlocksAfter.current.clear()
+    totalBlocksBefore.current.clear()
     reuseRatios.current.clear()
     bytesTotal.current.clear()
   }
@@ -130,9 +147,17 @@ function App() {
     return pack(json)
   }
 
+  const toBinaryBase64= json => {
+    const jsonText = JSON.stringify(json)
+    const buf = TEXT_ENCODER.encode(jsonText)
+    const base64Str = b64.fromByteArray(buf)
+    const buf2 = TEXT_ENCODER.encode(base64Str)
+    return buf2
+  }
+
   const toBinaryJson = json => {
-    const jsonText = JSON.stringify(json);
-    const buf = TEXT_ENCODER.encode(jsonText);
+    const jsonText = JSON.stringify(json)
+    const buf = TEXT_ENCODER.encode(jsonText)
     return buf
   }
 
@@ -162,12 +187,13 @@ function App() {
     const { root: r2, blocks: b2 } = await create({ buf: buf2, chunk, encode })
 
 
-    const { total, over, diff, ratio } = compareBlocks(b1, b2)
+    const { before, total, over, diff, ratio } = compareBlocks(b1, b2)
 
-    totalBlocks.current.set(key, total.length)
+    totalBlocksBefore.current.set(key, before.length)
+    totalBlocksAfter.current.set(key, total.length)
     reuseRatios.current.set(key, ratio)
     blocksReused.current.set(key, over.length)
-    blocksNew.current.set(key, diff.length)
+    blocksDiff.current.set(key, diff.length)
     bytesTotal.current.set(key, miB(buf2.byteLength))
   }
 
@@ -186,7 +212,7 @@ function App() {
     const ratio = ((over.length / c2.length) * 100).toFixed(2)
     console.log(`Diff % ${ratio}`)
 
-    return { total: c2, over, diff, ratio }
+    return { before: c1, total: c2, over, diff, ratio }
   }
 
   const appendDataSets = (originalSize, changeOffset, changeSize) => {
@@ -202,7 +228,7 @@ function App() {
     return { firstSet, secondSet }
   }
 
-  const insertDataSets = (originalSize, changeOffset, changeSize) => {
+  const insertDataSets = (originalSize, changeOffset, changeSize, skipSize) => {
     const firstSet = []
     for (let index = 0; index < originalSize; index++) {
       firstSet.push(simpleMaterialJson())
@@ -211,12 +237,12 @@ function App() {
     let cursor = changeOffset
     for (let index = 0; index < changeSize; index++) {
       secondSet.splice(cursor, 0, simpleMaterialJson())
-      cursor++
+      cursor += skipSize
     }
     return { firstSet, secondSet }
   }
 
-  const modifyDataSets = (originalSize, changeOffset, changeSize) => {
+  const modifyDataSets = (originalSize, changeOffset, changeSize, skipSize) => {
     const firstSet = []
     for (let index = 0; index < originalSize; index++) {
       firstSet.push(simpleMaterialJson())
@@ -225,7 +251,7 @@ function App() {
     let cursor = changeOffset
     for (let index = 0; index < changeSize; index++) {
       secondSet[cursor] = simpleMaterialJson()
-      cursor++
+      cursor += skipSize
     }
     return { firstSet, secondSet }
   }
@@ -251,6 +277,9 @@ function App() {
       <div id='plot1200-append'></div>
       <div id='plot1200-insert'></div>
       <div id='plot1200-modify'></div>
+      <div id='plot1200-modify-sparse-10'></div>
+      <div id='plot1200-modify-sparse-50'></div>
+      <div id='plot1200-modify-sparse-100'></div>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 export function trace({ lib, alg, count, bytes, values, text }) {
     return {
-        x: ['Total Blocks', 'Blocks New', 'Blocks Reused', 'Reuse Ratio (%)'],
+        x: ['Blocks Before', 'Blocks After', 'Blocks Diff', 'Blocks Reused', 'Reuse Ratio (%)'],
         y: values,
         type: 'bar',
         text: values.map(String),
